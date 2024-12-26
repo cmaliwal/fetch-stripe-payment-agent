@@ -36,25 +36,25 @@ This project consists of two main components:
 
 ## Usage
 
-### Running the Stripe Payment Agent
+### Running the Agents
 
-1. Start the Stripe Payment Agent:
+1. Start the Bureau to run both the Stripe Payment Agent and the User Agent:
     ```sh
-    poetry run python agent.py
+    poetry run python run_agents.py
     ```
 
 2. Expose the local server using ngrok:
     ```sh
-    ngrok http 5000
+    ngrok http 8000
     ```
 
-3. Update your Stripe webhook settings to point to the ngrok URL (e.g., `https://<ngrok-id>.ngrok.io/stripe_webhook`).
+3. Update your Stripe webhook settings to point to the ngrok URL (e.g., `https://<ngrok-id>.ngrok.io/webhook`).
 
-### Running the User Agent
+### Running the Flask Server for Webhooks
 
-1. Start the User Agent:
+1. Start the Flask server for handling Stripe webhooks:
     ```sh
-    poetry run python user_agent.py
+    poetry run python webhook.py
     ```
 
 ### Creating a Payment Link
@@ -62,23 +62,13 @@ This project consists of two main components:
 You can create a payment link by sending a POST request to the User Agent's `/create_payment` endpoint. Here is an example using `curl`:
 
 ```sh
-curl -X POST http://localhost:8001/create_payment \
+curl -X POST http://localhost:8000/create_payment \
      -H "Content-Type: application/json" \
      -d '{
            "amount": 100.0,
            "product_name": "Sample Product",
            "quantity": 1,
-           "email": "customer@example.com"
-         }'
-```
-
-### Generating an Invoice
-
-You can generate an invoice by sending a POST request to the User Agent's /generate_invoice endpoint. Here is an example using curl:
-```sh
-curl -X POST http://localhost:8001/generate_invoice \
-     -H "Content-Type: application/json" \
-     -d '{
-           "payment_id": "pi_1F8vQX2eZvKYlo2C1l9f7H8z"
+           "email": "customer@example.com",
+           "name": "Customer Name"
          }'
 ```

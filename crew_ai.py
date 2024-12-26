@@ -12,10 +12,10 @@ class PaymentProcess:
             secret_key=stripe_secret_key,
             configuration={
                 "actions": {
+                    "customers": {"create": True, "read": True},
                     "payment_links": {"create": True},
                     "products": {"create": True},
                     "prices": {"create": True},
-                    "payments": {"verify": True},
                 }
             },
         )
@@ -43,33 +43,6 @@ class PaymentProcess:
 
         crew = Crew(
             agents=[payment_agent],
-            tasks=[task],
-            verbose=True,
-            planning=True,
-        )
-
-        crew.kickoff()
-        result = task.output.raw
-        return result
-
-    def generate_invoice(self, payment_id):
-        invoice_agent = Agent(
-            role="Invoice Generator",
-            goal="Generates invoices for processed payments.",
-            backstory="You have been using Stripe forever.",
-            tools=[*self.stripe_toolkit.get_tools()],
-            verbose=True,
-        )
-
-        task = Task(
-            name="Generate Invoice",
-            description=f"Generate an invoice for the processed payment with payment_id: {payment_id}",
-            expected_output="invoice",
-            agent=invoice_agent,
-        )
-
-        crew = Crew(
-            agents=[invoice_agent],
             tasks=[task],
             verbose=True,
             planning=True,

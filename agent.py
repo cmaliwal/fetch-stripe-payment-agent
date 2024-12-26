@@ -7,6 +7,7 @@ from uagents import Agent, Context, Model
 from uagents.setup import fund_agent_if_low
 from payment_model import PaymentRequest, PaymentResponse
 from crew_ai import PaymentProcess
+from user_agent import user_agent as User
 
 SEED_PHRASE = "STRIPE_PAYMENT_AGENT_SEED_PHRASE"
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
@@ -14,8 +15,6 @@ STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 stripe_agent = Agent(
     name="Stripe Payment Agent",
     seed=SEED_PHRASE,
-    port=5000,
-    endpoint=["http://localhost:5000/submit"]
 )
 
 payment_processor = PaymentProcess()
@@ -34,7 +33,6 @@ async def handle_payment(ctx: Context, req: PaymentRequest) -> PaymentResponse:
             customer_email=req.customer_email
         )
 
-        # Use regex to find the payment link in the result
         payment_link_pattern = re.compile(r'https?://\S+')
         match = payment_link_pattern.search(result)
         if match:
@@ -42,51 +40,63 @@ async def handle_payment(ctx: Context, req: PaymentRequest) -> PaymentResponse:
         else:
             raise ValueError("Failed to find a valid payment link in the result")
 
+        generate_time = int(time.time())
+        payment_status = "pending"
+        confirmation_time = 0
+        amount = req.amount
+        payee_agent = User.address
+
+        payment_details = {
+            "payment_link": payment_link,
+            "generate_time": generate_time,
+            "payment_status": payment_status,
+            "confirmation_time": confirmation_time,
+            "amount": amount,
+            "payee_agent": payee_agent
+        }
+        ctx.storage.set('payment_details', payment_details)
+
         response = PaymentResponse(
             status="success",
             details="Payment link generated successfully",
             payment_link=payment_link,
-            generate_time=int(time.time()),
-            payment_status="pending",
-            confirmation_time=0,
-            amount=req.amount
+            generate_time=generate_time,
+            payment_status=payment_status,
+            confirmation_time=confirmation_time,
+            amount=amount
         )
+        return response
     except Exception as e:
-        response = PaymentResponse(status="error", details=str(e))
-    return response
+        return PaymentResponse(status="error", details=str(e))
 
 class StripeWebhookEvent(Model):
+    type: str
     data: dict
 
 @stripe_agent.on_rest_post("/stripe_webhook", StripeWebhookEvent, PaymentResponse)
 async def handle_stripe_webhook(ctx: Context, event: StripeWebhookEvent) -> PaymentResponse:
+    ctx.logger.info(f"Received Stripe webhook event. Type: {event.type}, Data: {event.data}")
 
-    ctx.logger.info(f"Received Stripe webhook event. Type: {event}, Data: {event.data}")
+    payload = event.data
 
-    payload = ctx.request.body()
-    sig_header = ctx.request.headers.get("Stripe-Signature")
-
-    try:
-        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
-    except ValueError as e:
-        ctx.logger.error(f"Invalid payload: {e}")
-        return PaymentResponse(status="error", details="Invalid payload")
-    except stripe.error.SignatureVerificationError as e:
-        ctx.logger.error(f"Invalid signature: {e}")
-        return PaymentResponse(status="error", details="Invalid signature")
-
-    if event["type"] == "payment_intent.succeeded":
-        payment_intent = event["data"]["object"]
+    if event.type == "payment_intent.succeeded":
+        payment_intent = payload
         customer_email = payment_intent.get("receipt_email")
         amount_received = payment_intent.get("amount_received")
         currency = payment_intent.get("currency")
         description = payment_intent.get("description")
         confirmation_time = int(time.time())
 
+        payment_details = ctx.storage.get('payment_details')
+        if payment_details:
+            payment_details["payment_status"] = "succeeded"
+            payment_details["confirmation_time"] = confirmation_time
+            ctx.storage.set('payment_details', payment_details)
+
         response = PaymentResponse(
             status="success",
             details=f"Payment of {amount_received} {currency} for {description} confirmed.",
-            payment_link=payment_intent.get("charges", {}).get("data", [{}])[0].get("receipt_url", ""),
+            payment_link=payment_details.get("payment_link"),
             generate_time=payment_intent.get("created"),
             payment_status="succeeded",
             confirmation_time=confirmation_time,
@@ -95,33 +105,12 @@ async def handle_stripe_webhook(ctx: Context, event: StripeWebhookEvent) -> Paym
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             await client.post(
-                "http://localhost:8001/payment_confirmation",
+                "http://localhost:8000/payment_confirmation",
                 json=response.dict()
             )
         return response
     else:
         return PaymentResponse(status="error", details="Unhandled event type")
-
-class InvoiceRequest(Model):
-    payment_id: str
-
-@stripe_agent.on_rest_post("/generate_invoice", InvoiceRequest, PaymentResponse)
-async def handle_invoice_generation(ctx: Context, req: InvoiceRequest) -> PaymentResponse:
-    ctx.logger.info(f"Received invoice generation request. Payment ID: {req.payment_id}")
-    try:
-        result = payment_processor.generate_invoice(payment_id=req.payment_id)
-        response = PaymentResponse(
-            status="success",
-            details=result,
-            payment_link=None,
-            generate_time=None,
-            payment_status="invoice_generated",
-            confirmation_time=int(time.time()),
-            amount=None
-        )
-    except Exception as e:
-        response = PaymentResponse(status="error", details=str(e))
-    return response
 
 if __name__ == "__main__":
     stripe_agent.run()
