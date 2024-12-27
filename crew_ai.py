@@ -7,9 +7,10 @@ load_dotenv()
 
 class PaymentProcess:
     def __init__(self):
-        stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+        self.stripe_secret_key = os.getenv("STRIPE_SECRET_KEY")
+        
         self.stripe_toolkit = StripeAgentToolkit(
-            secret_key=stripe_secret_key,
+            secret_key=self.stripe_secret_key,
             configuration={
                 "actions": {
                     "customers": {"create": True, "read": True},
@@ -19,9 +20,8 @@ class PaymentProcess:
                 }
             },
         )
-
-    def create_payment_link(self, amount, currency, product_name, quantity, customer_email):
-        payment_agent = Agent(
+        
+        self.payment_agent = Agent(
             role="Payment Processor",
             goal="Handles secure Stripe payment processing.",
             backstory="You have been using Stripe forever.",
@@ -29,25 +29,27 @@ class PaymentProcess:
             verbose=True,
         )
 
+        self.crew = Crew(
+            agents=[self.payment_agent],
+            verbose=True,
+            planning=True,
+        )
+
+    def create_payment_link(self, amount, currency, product_name, quantity, customer_email):
         description = (
-            f"Create a payment link for a new product called '{product_name}' "
-            f"with a price of {amount} {currency} and quantity {quantity} for customer {customer_email}."
+            f"Create a payment link for a new product '{product_name}' "
+            f"with a price of {amount} {currency} and quantity {quantity} "
+            f"for customer {customer_email}."
         )
 
         task = Task(
             name="Create Payment Link",
             description=description,
             expected_output="url",
-            agent=payment_agent,
+            agent=self.payment_agent,
         )
 
-        crew = Crew(
-            agents=[payment_agent],
-            tasks=[task],
-            verbose=True,
-            planning=True,
-        )
+        self.crew.tasks = [task]
+        self.crew.kickoff()
 
-        crew.kickoff()
-        result = task.output.raw
-        return result
+        return task.output.raw

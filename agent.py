@@ -11,6 +11,7 @@ from user_agent import user_agent as User
 
 SEED_PHRASE = "STRIPE_PAYMENT_AGENT_SEED_PHRASE"
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+PAYMENT_CONFIRMATION_URL = "http://localhost:8000/payment_confirmation"
 
 stripe_agent = Agent(
     name="Stripe Payment Agent",
@@ -105,7 +106,7 @@ async def handle_stripe_webhook(ctx: Context, event: StripeWebhookEvent) -> Paym
 
         async with httpx.AsyncClient(timeout=60.0) as client:
             await client.post(
-                "http://localhost:8000/payment_confirmation",
+                PAYMENT_CONFIRMATION_URL,
                 json=response.dict()
             )
         return response

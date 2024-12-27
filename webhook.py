@@ -26,20 +26,20 @@ async def webhook():
         raise e
 
     if event['type'] == 'payment_intent.succeeded':
-      payment_intent = event['data']['object']
+        payment_intent = event['data']['object']
 
-      request_data = {
-          "type": event['type'],
-          "data": payment_intent
-      }
-      async with httpx.AsyncClient(timeout=60.0) as client:
-          response = await client.post(
-              "http://localhost:8000/stripe_webhook",
-              json=request_data
-          )
-          response_data = response.json()
+        request_data = {
+            "type": event['type'],
+            "data": payment_intent
+        }
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "http://localhost:8000/stripe_webhook",
+                json=request_data
+            )
+            response_data = response.json()
     else:
-      print('Unhandled event type {}'.format(event['type']))
+        return jsonify(success=False, error="Unhandled event type {}".format(event['type']))
     return jsonify(success=True)
 
 

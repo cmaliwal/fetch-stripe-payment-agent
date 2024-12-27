@@ -3,9 +3,12 @@ import httpx
 from uagents import Agent, Context, Field, Model
 from payment_model import PaymentRequest, PaymentResponse
 
+USER_AGENT_SEED_PHRASE = "USER_AGENT_SEED_PHRASE"
+GENERATE_PAYMENT_LINK_URL = "http://localhost:8000/generate_payment_link"
+
 user_agent = Agent(
     name="User Agent",
-    seed="USER_AGENT_SEED_PHRASE",
+    seed=USER_AGENT_SEED_PHRASE,
 )
 
 class UserRequest(Model):
@@ -36,7 +39,7 @@ async def handle_user_request(ctx: Context, req: UserRequest) -> UserResponse:
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
-                "http://localhost:8000/generate_payment_link",
+                GENERATE_PAYMENT_LINK_URL,
                 json=payment_request.dict()
             )
             response_data = response.json()
