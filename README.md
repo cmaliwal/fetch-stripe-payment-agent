@@ -2,6 +2,9 @@
 
 A system for payment processing and invoice generation using Stripe, uAgents, and CrewAI.
 
+![image](https://github.com/user-attachments/assets/10574242-3260-4113-9b2a-9c7b314bb7c4)
+
+
 ## Overview
 
 This project consists of two main components:
