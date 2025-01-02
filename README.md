@@ -41,17 +41,30 @@ This project consists of two main components:
 
 ### Running the Agents
 
-1. Start the Bureau to run both the Stripe Payment Agent and the User Agent:
+1. Log in to your [Agentverse account](https://agentverse.ai/).
+2. Run the user and Stripe agents individually by executing the following command:
+   ```sh
+      python <agent>.py
+   ```
+   Replace <agent> with the specific agent name (e.g., user_agent.py or stripe_agent.py).
+3. In the respective consoles, click the "Agent Inspector" links to open the Agent Inspector window for each agent.
+4. Click the "Connect" button in the Agent Inspector.
+5. In the opened window, select "Mailbox" and follow the instructions to configure your agents by adding the following lines to their settings:
+   ```txt
+    mailbox=True,
+    endpoint=['https://agentverse.ai/v1/submit']
+   ```
+6. Start the Bureau to re-run both the Stripe Payment Agent and the User Agent:
     ```sh
     poetry run python run_agents.py
     ```
 
-2. Expose the local server using ngrok:
+7. Expose the local server using ngrok:
     ```sh
     ngrok http 8000
     ```
 
-3. Update your Stripe webhook settings to point to the ngrok URL (e.g., `https://<ngrok-id>.ngrok.io/webhook`).
+8. Update your Stripe webhook settings to point to the ngrok URL (e.g., `https://<ngrok-id>.ngrok.io/webhook`).
 
 ### Running the Flask Server for Webhooks
 
